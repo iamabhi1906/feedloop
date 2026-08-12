@@ -2,8 +2,10 @@ import FeedbackFilters from "@/components/feedbacks/feedback-filters/feedback-fi
 import styles from "./page.module.css";
 import { Box, Button, Typography } from "@mui/material";
 import FeedbackCard from "@/components/feedbacks/feedback-card/feedback-card";
-import api from "@/utils/api/api";
+import { serverApi } from "@/utils/api/ssr-api";
 import { Feedback } from "@/features/feedback/feedback.types";
+
+export const dynamic = "force-dynamic";
 
 interface HomeProps {
   searchParams: Promise<{
@@ -40,13 +42,20 @@ async function getFeedbacks(searchParams: Awaited<HomeProps["searchParams"]>) {
   params.set("page", searchParams.page ?? "1");
   params.set("limit", searchParams.limit ?? "10");
 
-  const { data } = await api.get("/feedbacks", { params: params });
-
-  if (!data.data) {
-    throw new Error("Failed to fetch feedbacks");
+  try {
+    const apiInstance = await serverApi();
+    const { data } = await apiInstance.get("/feedbacks", { params: params });
+    if (data && data.data) {
+      return data;
+    }
+  } catch {
+    // fallback if API is unreachable during build or error
   }
 
-  return data;
+  return {
+    data: [],
+    meta: { page: 1, limit: 10, total: 0, totalPages: 0 },
+  };
 }
 
 export default async function Home({ searchParams }: HomeProps) {

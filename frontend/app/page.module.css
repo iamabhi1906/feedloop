@@ -28,3 +28,8 @@
   font-weight: 500 !important;
   text-decoration: none !important;
 }
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

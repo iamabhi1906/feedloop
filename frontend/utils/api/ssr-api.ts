@@ -51,7 +51,7 @@ export async function serverApi(): Promise<AxiosInstance> {
             isRefreshing = true;
             try {
               await axios.post(
-                `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
+                `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050"}/auth/refresh`,
                 {},
                 {
                   headers: {

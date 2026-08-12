@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Box, Chip, IconButton, Typography } from "@mui/material";
 import ArrowUpwardRoundedIcon from "@mui/icons-material/ArrowUpwardRounded";
 import ArrowDownwardRoundedIcon from "@mui/icons-material/ArrowDownwardRounded";
@@ -9,6 +10,8 @@ import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineR
 import styles from "./feedback-card.module.css";
 import { Feedback } from "@/features/feedback/feedback.types";
 import { VoteType } from "@/features/vote/vote.types";
+import { voteFeedback } from "@/features/vote/vote.service";
+import axios from "axios";
 
 interface FeedbackCardProps {
   feedback: Feedback;
@@ -16,37 +19,55 @@ interface FeedbackCardProps {
 }
 
 export default function FeedbackCard({ feedback, onVote }: FeedbackCardProps) {
+  const router = useRouter();
   const [vote, setVote] = useState<VoteType | null>(feedback.userVote ?? null);
-
-  const [score, setScore] = useState(feedback.score);
+  const [score, setScore] = useState<number>(feedback.score ?? 0);
   const [voting, setVoting] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setVote(feedback.userVote ?? null);
+    setScore(feedback.score ?? 0);
+  }, [feedback.userVote, feedback.score]);
 
   const handleVote = async (type: VoteType) => {
     if (voting) return;
-
     const previousVote = vote;
-
+    const previousScore = score;
+    let newVote: VoteType | null = type;
+    let newScore = previousScore;
+    if (previousVote === type) {
+      newVote = null;
+      newScore = type === "UPVOTE" ? previousScore - 1 : previousScore + 1;
+    } else {
+      newVote = type;
+      if (!previousVote) {
+        newScore = type === "UPVOTE" ? previousScore + 1 : previousScore - 1;
+      } else {
+        newScore = type === "UPVOTE" ? previousScore + 2 : previousScore - 2;
+      }
+    }
+    setVote(newVote);
+    setScore(newScore);
     try {
       setVoting(true);
-
-      if (previousVote === type) {
-        setVote(null);
-
-        setScore((current) => (type === "UPVOTE" ? current - 1 : current + 1));
+      if (onVote) {
+        await onVote(feedback.id, type);
       } else {
-        setVote(type);
-        setScore((current) => {
-          if (!previousVote) {
-            return type === "UPVOTE" ? current + 1 : current - 1;
-          }
-          return type === "UPVOTE" ? current + 2 : current - 2;
-        });
+        const res = await voteFeedback(feedback.id, type);
+        if (res) {
+          setVote(res.userVote ?? null);
+          setScore(res.score);
+        }
       }
-
-      await onVote?.(feedback.id, type);
-    } catch {
+    } catch (error: unknown) {
       setVote(previousVote);
-      setScore(feedback.score);
+      setScore(previousScore);
+      if (axios.isAxiosError(error)) {
+        if (error?.response?.status === 401) {
+          router.push("/login");
+        }
+      }
     } finally {
       setVoting(false);
     }
@@ -65,9 +86,7 @@ export default function FeedbackCard({ feedback, onVote }: FeedbackCardProps) {
         >
           <ArrowUpwardRoundedIcon />
         </IconButton>
-
         <Typography className={styles.score}>{score}</Typography>
-
         <IconButton
           className={`${styles.voteButton} ${
             vote === "DOWNVOTE" ? styles.activeDownvote : ""
@@ -79,7 +98,6 @@ export default function FeedbackCard({ feedback, onVote }: FeedbackCardProps) {
           <ArrowDownwardRoundedIcon />
         </IconButton>
       </Box>
-
       <Box className={styles.content}>
         <Box className={styles.header}>
           <Typography
@@ -89,9 +107,8 @@ export default function FeedbackCard({ feedback, onVote }: FeedbackCardProps) {
           >
             {feedback.title}
           </Typography>
-
           <Typography className={styles.author}>
-            by @{feedback.user.name}
+            by @{feedback.user?.name ?? "unknown"}
           </Typography>
         </Box>
 
@@ -100,7 +117,7 @@ export default function FeedbackCard({ feedback, onVote }: FeedbackCardProps) {
         </Typography>
 
         <Box className={styles.tags}>
-          {feedback.tags.map((tag) => (
+          {feedback.tags?.map((tag) => (
             <Chip
               key={tag.id}
               label={tag.name}
@@ -119,8 +136,8 @@ export default function FeedbackCard({ feedback, onVote }: FeedbackCardProps) {
             <ChatBubbleOutlineRoundedIcon fontSize="small" />
 
             <Typography>
-              {feedback.commentCount}{" "}
-              {feedback.commentCount === 1 ? "comment" : "comments"}
+              {feedback.commentCount ?? 0}{" "}
+              {(feedback.commentCount ?? 0) === 1 ? "comment" : "comments"}
             </Typography>
           </Box>
 

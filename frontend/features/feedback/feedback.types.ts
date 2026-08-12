@@ -1,5 +1,6 @@
 import { Tag } from "../tags/tag.types";
 import { User } from "../users/users.type";
+import { VoteType } from "../vote/vote.types";
 
 export enum FeedbackVisibility {
   PUBLIC = "public",
@@ -17,4 +18,7 @@ export interface Feedback {
   updatedAt: string;
   user: User;
   tags: Tag[];
+  score: number;
+  userVote?: VoteType | null;
+  commentCount?: number;
 }

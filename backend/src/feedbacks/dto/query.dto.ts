@@ -7,7 +7,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export class FeedbackQueryDTO {
   @IsOptional()
@@ -15,11 +15,19 @@ export class FeedbackQueryDTO {
   search?: string;
 
   @IsOptional()
+  @Transform(({ value }): string[] => {
+    if (Array.isArray(value)) return value as string[];
+    return value ? [String(value)] : [];
+  })
   @IsArray()
-  @IsString({ each: true })
+  @IsUUID(undefined, { each: true })
   tags?: string[];
 
   @IsOptional()
+  @Transform(({ value }): string[] => {
+    if (Array.isArray(value)) return value as string[];
+    return value ? [String(value)] : [];
+  })
   @IsArray()
   @IsUUID(undefined, { each: true })
   authors?: string[];

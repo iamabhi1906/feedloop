@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Post,
   Query,
   Req,
@@ -12,8 +13,12 @@ import {
   type AuthenticatedRequest,
   JwtAuthGuard,
 } from '../guards/jwt-auth.guard';
+import {
+  OptionalJwtAuthGuard,
+  type OptionalAuthenticatedRequest,
+} from '../guards/optional-jwt-auth.guard';
 import { CreateFeedbackDTO } from './dto/create.dto';
-import { FeedbackQueryDTO } from './dto/quary.dto';
+import { FeedbackQueryDTO } from './dto/query.dto';
 
 @Controller('feedbacks')
 export class FeedbacksController {
@@ -29,7 +34,21 @@ export class FeedbacksController {
   }
 
   @Get()
-  async getFeedbacks(@Query() query: FeedbackQueryDTO) {
-    return await this.feedBackService.findAll(query);
+  @UseGuards(OptionalJwtAuthGuard)
+  async getFeedbacks(
+    @Query() query: FeedbackQueryDTO,
+    @Req() request: OptionalAuthenticatedRequest,
+  ) {
+    console.log(query);
+    return await this.feedBackService.findAll(query, request.user);
+  }
+
+  @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
+  async getFeedback(
+    @Param('id') id: string,
+    @Req() request: OptionalAuthenticatedRequest,
+  ) {
+    return await this.feedBackService.findOne(id, request.user);
   }
 }

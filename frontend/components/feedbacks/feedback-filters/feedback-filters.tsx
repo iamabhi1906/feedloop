@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Box,
   Button,
+  Chip,
   debounce,
   FormControl,
   InputLabel,
@@ -16,17 +17,44 @@ import {
 } from "@mui/material";
 import { useMemo, useState, useEffect } from "react";
 import styles from "./feedback-filters.module.css";
-
-const tags = ["UI", "Performance", "Backend", "Frontend"];
-const authors = ["john", "abhishek", "rahul"];
+import { Tag } from "@/features/tags/tag.types";
+import { User } from "@/features/users/users.type";
+import { getTags } from "@/features/tags/tag.service";
+import { getUsers } from "@/features/users/users.service";
 
 export default function FeedbackFilters() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  const [tagsList, setTagsList] = useState<Tag[]>([]);
+  const [authorsList, setAuthorsList] = useState<User[]>([]);
+
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") ?? "",
   );
+
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchFilterData() {
+      try {
+        const [tagsRes, usersRes] = await Promise.all([
+          getTags({ page: 1, limit: 100 }),
+          getUsers(),
+        ]);
+        if (isMounted) {
+          if (tagsRes?.data) setTagsList(tagsRes.data);
+          if (usersRes) setAuthorsList(usersRes);
+        }
+      } catch (err) {
+        console.error("Failed to load filter options", err);
+      }
+    }
+    fetchFilterData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     setSearchTerm(searchParams.get("search") ?? "");
@@ -97,15 +125,27 @@ export default function FeedbackFilters() {
             value={selectedTags}
             onChange={handleMultiSelect("tags")}
             input={<OutlinedInput label="Tags" />}
+            renderValue={(selected) => (
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                {selected.map((val) => {
+                  const tagObj = tagsList.find(
+                    (t) => t.id === val || t.name === val,
+                  );
+                  return (
+                    <Chip key={val} label={tagObj ? tagObj.name : val} size="small" />
+                  );
+                })}
+              </Box>
+            )}
           >
-            {tags.map((tag) => (
-              <MenuItem key={tag} value={tag}>
-                {" "}
-                {tag}{" "}
+            {tagsList.map((tag) => (
+              <MenuItem key={tag.id} value={tag.id}>
+                {tag.name}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
+
         <FormControl className={styles.select} fullWidth>
           <InputLabel>Author</InputLabel>
           <Select
@@ -113,16 +153,32 @@ export default function FeedbackFilters() {
             value={selectedAuthors}
             onChange={handleMultiSelect("authors")}
             input={<OutlinedInput label="Author" />}
+            renderValue={(selected) => (
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                {selected.map((val) => {
+                  const userObj = authorsList.find(
+                    (u) => u.id === val || u.username === val || u.name === val,
+                  );
+                  return (
+                    <Chip
+                      key={val}
+                      label={userObj ? userObj.name || userObj.username : val}
+                      size="small"
+                    />
+                  );
+                })}
+              </Box>
+            )}
             fullWidth
           >
-            {authors.map((author) => (
-              <MenuItem key={author} value={author}>
-                {" "}
-                {author}{" "}
+            {authorsList.map((author) => (
+              <MenuItem key={author.id} value={author.id}>
+                {author.name || author.username}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
+
         <FormControl className={styles.sort} fullWidth>
           <InputLabel>Sort Score</InputLabel>
           <Select
@@ -134,6 +190,7 @@ export default function FeedbackFilters() {
             <MenuItem value="asc">Lowest first</MenuItem>
           </Select>
         </FormControl>
+
         <Button
           variant="outlined"
           onClick={() => router.push(pathname)}
