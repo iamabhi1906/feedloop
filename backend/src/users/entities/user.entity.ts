@@ -4,7 +4,9 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
+import Tag from '../../tags/entities/tag.entity';
 import { UserRole } from '../enums/user-role.enum';
 
 @Entity('users')
@@ -41,4 +43,7 @@ export default class User {
 
   @UpdateDateColumn()
   updatedAt!: Date;
+
+  @OneToMany(() => Tag, (tag) => tag.createdBy)
+  tags!: Tag[];
 }

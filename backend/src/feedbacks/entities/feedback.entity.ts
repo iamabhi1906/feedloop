@@ -6,12 +6,14 @@ import {
   JoinTable,
   ManyToMany,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import FeedbackVisibility from '../enums/feedback-visibility.enum';
 import User from '../../users/entities/user.entity';
 import Tag from '../../tags/entities/tag.entity';
+import Vote from '../../votes/entities/votes.entity';
 
 @Entity('feedbacks')
 export default class Feedback {
@@ -48,6 +50,9 @@ export default class Feedback {
   })
   @JoinColumn({ name: 'userId' })
   user!: User;
+
+  @OneToMany(() => Vote, (vote) => vote.feedback)
+  votes!: Vote[];
 
   @ManyToMany(() => Tag, (tag) => tag.feedbacks)
   @JoinTable({

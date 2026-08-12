@@ -1,0 +1,90 @@
+.appBar {
+  background: #ffffff !important;
+  color: #111827 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  position: fixed !important;
+}
+
+.toolbar {
+  min-height: 64px;
+}
+
+.logo {
+  color: var(--mui-primary-main) !important;
+  text-decoration: none;
+  font-weight: 800 !important;
+  letter-spacing: -0.1px;
+  font-size: 30px !important;
+}
+
+.desktopLogo {
+  display: flex;
+  font-size: 1.5rem;
+  margin-right: 32px !important;
+}
+
+.mobileLogo {
+  display: none;
+  font-size: 1.35rem;
+}
+
+.desktopNav {
+  display: flex;
+  flex-grow: 1;
+  gap: 4px;
+}
+
+.navButton {
+  color: #374151 !important;
+  text-transform: none !important;
+  font-weight: 500 !important;
+}
+
+.navButton:hover {
+  background: #f3f6fa !important;
+  color: #1565c0 !important;
+}
+
+.mobileMenu {
+  display: none;
+}
+
+.authSection {
+  display: flex;
+  align-items: center;
+}
+
+.avatar {
+  width: 38px;
+  height: 38px;
+  background: #1565c0 !important;
+  font-weight: 600;
+}
+
+.loginButton {
+  text-transform: none !important;
+  font-weight: 600 !important;
+  padding: 8px 20px !important;
+}
+
+.email {
+  color: #464a52 !important;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .desktopLogo,
+  .desktopNav {
+    display: none;
+  }
+
+  .mobileMenu {
+    display: flex;
+  }
+
+  .mobileLogo {
+    display: flex;
+    flex-grow: 1;
+  }
+}

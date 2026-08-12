@@ -1,4 +1,3 @@
-"use client";
 import { Box, Card, CardContent, Typography, Stack } from "@mui/material";
 import styles from "./page.module.css";
 import SignInForm from "./_signin-form/signin.form";

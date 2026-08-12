@@ -42,6 +42,7 @@ export default function SignInForm() {
       if (response.data.status === "success") {
         setSuccess(true);
         router.replace("/");
+        router.refresh();
       }
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
@@ -101,7 +102,7 @@ export default function SignInForm() {
 
       <Typography>
         Don&apos;t have an account?{" "}
-        <Link href={"/signup"} className={styles.link}>
+        <Link href={"/register"} className={styles.link}>
           Signin
         </Link>
       </Typography>

@@ -7,6 +7,6 @@ import { UsersModule } from '../users/users.module';
   imports: [UsersModule, TokenModule],
   providers: [JwtAuthGuard],
   controllers: [],
-  exports: [JwtAuthGuard],
+  exports: [JwtAuthGuard, UsersModule, TokenModule],
 })
 export class GuardsModule {}
