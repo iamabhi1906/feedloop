@@ -8,6 +8,7 @@ import {
   FormControlLabel,
   Radio,
   RadioGroup,
+  TextField,
   Typography,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
@@ -63,7 +64,7 @@ export default function FeedbackForm() {
       <Box className={styles.field}>
         <Typography className={styles.label}>Title</Typography>
 
-        <input
+        <TextField
           {...register("title")}
           className={styles.input}
           placeholder="Short feedback title"
@@ -109,13 +110,13 @@ export default function FeedbackForm() {
 
             <RadioGroup value={field.value} onChange={field.onChange} row>
               <FormControlLabel
-                value="PUBLIC"
+                value={FeedbackVisibility.PUBLIC}
                 control={<Radio />}
                 label="Public"
               />
 
               <FormControlLabel
-                value="PRIVATE"
+                value={FeedbackVisibility.PRIVATE}
                 control={<Radio />}
                 label="Private"
               />

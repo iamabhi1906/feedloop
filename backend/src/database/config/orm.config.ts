@@ -14,7 +14,7 @@ export const ormConfig: TypeOrmModuleAsyncOptions = {
     entities: [join(__dirname, '..', '..', '**', '*.entity.{js,ts}')],
     migrations: [join(__dirname, '..', 'migrations', '*.{js,ts}')],
 
-    logging: true,
+    logging: false,
     migrationsRun: false,
     synchronize: config.get<string>('NODE_ENV') !== 'production',
   }),

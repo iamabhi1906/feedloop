@@ -1,0 +1,19 @@
+.page {
+  max-width: 800px;
+  margin: auto;
+  height: 100%;
+}
+
+.goBackButton {
+  display: flex;
+  align-items: center;
+  background-color: var(--mui-primary-main);
+  width: fit-content;
+  padding: 5px 20px;
+  color: var(--mui-secondary-contrast);
+  font-weight: 600;
+  gap: 4px;
+  font-size: 15px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}

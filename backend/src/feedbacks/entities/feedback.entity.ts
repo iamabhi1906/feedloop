@@ -14,6 +14,7 @@ import FeedbackVisibility from '../enums/feedback-visibility.enum';
 import User from '../../users/entities/user.entity';
 import Tag from '../../tags/entities/tag.entity';
 import Vote from '../../votes/entities/votes.entity';
+import Comment from '../../comments/entities/comment.entity';
 
 @Entity('feedbacks')
 export default class Feedback {
@@ -53,6 +54,9 @@ export default class Feedback {
 
   @OneToMany(() => Vote, (vote) => vote.feedback)
   votes!: Vote[];
+
+  @OneToMany(() => Comment, (comment) => comment.feedback)
+  comments!: Comment[];
 
   @ManyToMany(() => Tag, (tag) => tag.feedbacks)
   @JoinTable({

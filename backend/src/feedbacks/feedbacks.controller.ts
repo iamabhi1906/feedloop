@@ -43,6 +43,16 @@ export class FeedbacksController {
     return await this.feedBackService.findAll(query, request.user);
   }
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getFeedbackOfMe(
+    @Query() query: FeedbackQueryDTO,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    console.log('i am hit');
+    return this.feedBackService.findAllMe(query, request.user);
+  }
+
   @Get(':id')
   @UseGuards(OptionalJwtAuthGuard)
   async getFeedback(

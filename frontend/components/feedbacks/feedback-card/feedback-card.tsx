@@ -12,13 +12,21 @@ import { Feedback } from "@/features/feedback/feedback.types";
 import { VoteType } from "@/features/vote/vote.types";
 import { voteFeedback } from "@/features/vote/vote.service";
 import axios from "axios";
+import { User } from "@/features/users/users.type";
 
 interface FeedbackCardProps {
   feedback: Feedback;
   onVote?: (feedbackId: string, type: VoteType) => Promise<void>;
+  showFullDescription?: boolean;
+  currentUser: User | null;
 }
 
-export default function FeedbackCard({ feedback, onVote }: FeedbackCardProps) {
+export default function FeedbackCard({
+  feedback,
+  onVote,
+  showFullDescription = false,
+  currentUser,
+}: FeedbackCardProps) {
   const router = useRouter();
   const [vote, setVote] = useState<VoteType | null>(feedback.userVote ?? null);
   const [score, setScore] = useState<number>(feedback.score ?? 0);
@@ -81,7 +89,7 @@ export default function FeedbackCard({ feedback, onVote }: FeedbackCardProps) {
             vote === "UPVOTE" ? styles.activeUpvote : ""
           }`}
           onClick={() => handleVote("UPVOTE")}
-          disabled={voting}
+          disabled={voting || !currentUser}
           aria-label="upvote"
         >
           <ArrowUpwardRoundedIcon />
@@ -92,7 +100,7 @@ export default function FeedbackCard({ feedback, onVote }: FeedbackCardProps) {
             vote === "DOWNVOTE" ? styles.activeDownvote : ""
           }`}
           onClick={() => handleVote("DOWNVOTE")}
-          disabled={voting}
+          disabled={voting || !currentUser}
           aria-label="downvote"
         >
           <ArrowDownwardRoundedIcon />
@@ -112,7 +120,9 @@ export default function FeedbackCard({ feedback, onVote }: FeedbackCardProps) {
           </Typography>
         </Box>
 
-        <Typography className={styles.description}>
+        <Typography
+          className={`${styles.description} ${showFullDescription ? "" : styles.ThreeLineClap}`}
+        >
           {feedback.description}
         </Typography>
 

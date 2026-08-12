@@ -22,7 +22,7 @@ export default class Comment {
   @Column({ type: 'uuid' })
   userId!: string;
 
-  @Column({ type: 'int', nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   parentId!: string | null;
 
   @Column({ type: 'text' })
@@ -37,7 +37,9 @@ export default class Comment {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @ManyToOne(() => Feedback, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Feedback, (feedback) => feedback.comments, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'feedbackId' })
   feedback!: Feedback;
 
@@ -47,9 +49,11 @@ export default class Comment {
 
   @ManyToOne(() => Comment, (comment) => comment.replies, {
     onDelete: 'CASCADE',
+    nullable: true,
   })
   @JoinColumn({ name: 'parentId' })
   parent!: Comment | null;
+
   @OneToMany(() => Comment, (comment) => comment.parent)
   replies!: Comment[];
 }

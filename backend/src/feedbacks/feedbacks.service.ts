@@ -7,7 +7,6 @@ import { CreateFeedbackDTO } from './dto/create.dto';
 import User from '../users/entities/user.entity';
 import { TagsService } from '../tags/tags.service';
 import { FeedbackQueryDTO } from './dto/query.dto';
-import FeedbackVisibility from './enums/feedback-visibility.enum';
 import { VoteType } from '../votes/enums/vote-type.enum';
 
 @Injectable()
@@ -15,35 +14,37 @@ export class FeedbacksService {
   constructor(
     @InjectRepository(Feedback)
     private readonly feedbackRepository: Repository<Feedback>,
-    private readonly tagService: TagsService,
+    private readonly tagsService: TagsService,
   ) {}
 
-  async createFeedBack(user: User, payload: CreateFeedbackDTO) {
-    const tags = await this.tagService.getTagList(payload.tags);
-    const newFeedback = this.feedbackRepository.create({
-      title: payload.title,
-      description: payload.description,
-      visibility: payload.visibility,
-      tags: tags,
-      user: user,
+  async createFeedBack(
+    user: User,
+    createFeedbackDTO: CreateFeedbackDTO,
+  ): Promise<Feedback> {
+    const tags = await this.tagsService.getTagList(createFeedbackDTO.tags);
+
+    const feedback = this.feedbackRepository.create({
+      ...createFeedbackDTO,
+      tags,
+      user,
     });
-    newFeedback.user = user;
-    return await this.feedbackRepository.save(newFeedback);
+    return await this.feedbackRepository.save(feedback);
   }
 
   async findAll(query: FeedbackQueryDTO, user?: User) {
-    const { sort = 'desc', page = 1, limit = 10 } = query;
+    const { page = 1, limit = 10, sort = 'desc' } = query;
+
     const qb = this.feedbackRepository
       .createQueryBuilder('feedback')
       .leftJoinAndSelect('feedback.user', 'user')
       .leftJoinAndSelect('feedback.tags', 'tag')
       .leftJoinAndSelect('feedback.votes', 'vote')
-      .where('feedback.isDeleted = :isDeleted', {
-        isDeleted: false,
-      })
-      .andWhere('feedback.visibility = :visibility', {
-        visibility: FeedbackVisibility.PUBLIC,
-      });
+      .leftJoinAndSelect(
+        'feedback.comments',
+        'comment',
+        'comment.isDeleted = false',
+      )
+      .where('feedback.isDeleted = false');
 
     if (query.search) {
       qb.andWhere(
@@ -53,7 +54,6 @@ export class FeedbacksService {
     }
 
     if (query.tags?.length) {
-      console.log(query.tags);
       qb.andWhere('(tag.id IN (:...tags) OR tag.name IN (:...tags))', {
         tags: query.tags,
       });
@@ -103,14 +103,15 @@ export class FeedbacksService {
         ? (votes.find((v) => v.userId === user.id)?.type ?? null)
         : null;
 
-      const { votes: _, ...rest } = feedback;
+      const commentCount = (feedback.comments || []).length;
+      const { votes: _, comments: __, ...rest } = feedback;
       return {
         ...rest,
         score,
         userVote,
+        commentCount,
       };
     });
-
     return {
       data,
       meta: {
@@ -125,8 +126,9 @@ export class FeedbacksService {
   async findOne(id: string, user?: User) {
     const feedback = await this.feedbackRepository.findOne({
       where: { id, isDeleted: false },
-      relations: { user: true, tags: true, votes: true },
+      relations: { user: true, tags: true, votes: true, comments: true },
     });
+
     if (!feedback) {
       throw new NotFoundException('Feedback not found');
     }
@@ -136,14 +138,85 @@ export class FeedbacksService {
       if (v.type === VoteType.DOWNVOTE) return acc - 1;
       return acc;
     }, 0);
+
     const userVote = user
       ? (votes.find((v) => v.userId === user.id)?.type ?? null)
       : null;
-    const { votes: _, ...rest } = feedback;
+
+    const commentCount = (feedback.comments || []).filter(
+      (c) => !c.isDeleted,
+    ).length;
+    const { votes: _, comments: __, ...rest } = feedback;
     return {
       ...rest,
       score,
       userVote,
+      commentCount,
+    };
+  }
+
+  async findAllMe(query: FeedbackQueryDTO, user: User) {
+    const { page = 1, limit = 10, sort = 'desc' } = query;
+    const qb = this.feedbackRepository
+      .createQueryBuilder('feedback')
+      .leftJoinAndSelect('feedback.user', 'user')
+      .leftJoinAndSelect('feedback.tags', 'tag')
+      .leftJoinAndSelect('feedback.votes', 'vote')
+      .leftJoinAndSelect(
+        'feedback.comments',
+        'comment',
+        'comment.isDeleted = false',
+      )
+      .where('feedback.isDeleted = false')
+      .andWhere('feedback.userId = :userId', { userId: user.id });
+
+    if (query.search) {
+      qb.andWhere(
+        '(feedback.title ILIKE :search OR feedback.description ILIKE :search)',
+        { search: `%${query.search}%` },
+      );
+    }
+
+    if (query.tags?.length) {
+      qb.andWhere('(tag.id IN (:...tags) OR tag.name IN (:...tags))', {
+        tags: query.tags,
+      });
+    }
+    const allFeedbacks = await qb.getMany();
+    const formattedData = allFeedbacks.map((feedback) => {
+      const votes = feedback.votes || [];
+      const score = votes.reduce((acc, v) => {
+        if (v.type === VoteType.UPVOTE) return acc + 1;
+        if (v.type === VoteType.DOWNVOTE) return acc - 1;
+        return acc;
+      }, 0);
+
+      const commentCount = (feedback.comments || []).length;
+      const { votes: _, comments: __, ...rest } = feedback;
+
+      return { ...rest, score, commentCount };
+    });
+
+    // 5. Sort by score in memory
+    formattedData.sort((a, b) => {
+      return sort.toLowerCase() === 'desc'
+        ? b.score - a.score
+        : a.score - b.score;
+    });
+
+    // 6. Paginate the sorted array
+    const total = formattedData.length;
+    const startIndex = (page - 1) * limit;
+    const paginatedData = formattedData.slice(startIndex, startIndex + limit);
+
+    return {
+      data: paginatedData,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 }

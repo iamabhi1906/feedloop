@@ -21,7 +21,7 @@ import { User } from "@/features/users/users.type";
 import styles from "./responsive-app-bar.module.css";
 import api from "@/utils/api/api";
 
-const pages = [
+const basePages = [
   { label: "Home", href: "/" },
   { label: "About", href: "/about" },
   { label: "Tags", href: "/tags" },
@@ -67,6 +67,16 @@ function ResponsiveAppBar({ user }: ResponsiveAppBarProps) {
       router.refresh();
     }
   };
+  const navigationPages = React.useMemo(() => {
+    if (user?.role === "admin") {
+      return [
+        ...basePages,
+        { label: "Admin User", href: "/admin/users" },
+        { label: "Admin Feedback", href: "/admin/feedbacks" },
+      ];
+    }
+    return basePages;
+  }, [user?.role]);
 
   const avatarLetter = user?.username?.charAt(0).toUpperCase() ?? "U";
 
@@ -100,7 +110,7 @@ function ResponsiveAppBar({ user }: ResponsiveAppBarProps) {
               onClose={handleCloseNavMenu}
               className={styles.mobileNav}
             >
-              {pages.map((page) => (
+              {navigationPages.map((page) => (
                 <MenuItem
                   key={page.href}
                   component={Link}
@@ -124,7 +134,7 @@ function ResponsiveAppBar({ user }: ResponsiveAppBarProps) {
 
           {/* Desktop Navigation */}
           <Box className={styles.desktopNav}>
-            {pages.map((page) => (
+            {navigationPages.map((page) => (
               <Button
                 key={page.href}
                 component={Link}
