@@ -48,4 +48,12 @@ export class FeedbackQueryDTO {
   @Min(1)
   @Max(100)
   limit: number = 10;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  includeDeleted?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  includeDeletedComments?: boolean;
 }

@@ -1,9 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import Vote from './entities/votes.entity';
 import { VoteType } from './enums/vote-type.enum';
 import Feedback from '../feedbacks/entities/feedback.entity';
+import User from '../users/entities/user.entity';
+import { UserRole } from '../users/enums/user-role.enum';
 
 @Injectable()
 export class VotesService {
@@ -14,7 +16,15 @@ export class VotesService {
     private readonly feedbackRepository: Repository<Feedback>,
   ) {}
 
-  async vote(userId: string, feedbackId: string, type: VoteType) {
+  async vote(user: User, feedbackId: string, type: VoteType) {
+    if (user.role === UserRole.ADMIN) {
+      throw new ForbiddenException('Admins are not allowed to vote on feedback');
+    }
+    if (user.isLoginDisabled) {
+      throw new ForbiddenException('Your account has been disabled');
+    }
+
+    const userId = user.id;
     const feedback = await this.feedbackRepository.findOne({
       where: { id: feedbackId, isDeleted: false },
     });

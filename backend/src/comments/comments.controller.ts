@@ -13,8 +13,12 @@ import {
   type AuthenticatedRequest,
   JwtAuthGuard,
 } from '../guards/jwt-auth.guard';
-import { OptionalJwtAuthGuard } from '../guards/optional-jwt-auth.guard';
+import {
+  OptionalJwtAuthGuard,
+  type OptionalAuthenticatedRequest,
+} from '../guards/optional-jwt-auth.guard';
 import { CreateCommentDTO } from './dto/create-comment.dto';
+import { Query } from '@nestjs/common';
 
 @Controller()
 export class CommentsController {
@@ -32,8 +36,17 @@ export class CommentsController {
 
   @Get('feedbacks/:feedbackId/comments')
   @UseGuards(OptionalJwtAuthGuard)
-  async getComments(@Param('feedbackId') feedbackId: string) {
-    return await this.commentsService.getCommentsForFeedback(feedbackId);
+  async getComments(
+    @Param('feedbackId') feedbackId: string,
+    @Req() req: OptionalAuthenticatedRequest,
+    @Query('includeDeletedComments') includeDeletedComments?: string,
+  ) {
+    const isInclude = includeDeletedComments === 'true';
+    return await this.commentsService.getCommentsForFeedback(
+      feedbackId,
+      req.user,
+      isInclude,
+    );
   }
 
   @Delete('comments/:id')

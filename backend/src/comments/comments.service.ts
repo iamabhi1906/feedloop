@@ -8,6 +8,7 @@ import Comment from './entities/comment.entity';
 import { Repository } from 'typeorm';
 import Feedback from '../feedbacks/entities/feedback.entity';
 import User from '../users/entities/user.entity';
+import { UserRole } from '../users/enums/user-role.enum';
 import { CreateCommentDTO } from './dto/create-comment.dto';
 
 @Injectable()
@@ -24,6 +25,13 @@ export class CommentsService {
     feedbackId: string,
     dto: CreateCommentDTO,
   ): Promise<Comment> {
+    if (user.role === UserRole.ADMIN) {
+      throw new ForbiddenException('Admins are not allowed to comment on feedback');
+    }
+    if (user.isLoginDisabled) {
+      throw new ForbiddenException('Your account has been disabled');
+    }
+
     const feedback = await this.feedbackRepository.findOne({
       where: { id: feedbackId, isDeleted: false },
     });
@@ -53,12 +61,28 @@ export class CommentsService {
     return saved;
   }
 
-  async getCommentsForFeedback(feedbackId: string) {
-    const comments = await this.commentRepository.find({
-      where: { feedbackId, isDeleted: false },
-      relations: { user: true },
-      order: { createdAt: 'ASC' },
-    });
+  async getCommentsForFeedback(
+    feedbackId: string,
+    user?: User,
+    includeDeletedComments?: boolean,
+  ) {
+    const isAdmin = user?.role === UserRole.ADMIN;
+    const qb = this.commentRepository
+      .createQueryBuilder('comment')
+      .leftJoinAndSelect('comment.user', 'user')
+      .where('comment.feedbackId = :feedbackId', { feedbackId });
+
+    if (!isAdmin || !includeDeletedComments) {
+      qb.andWhere('comment.isDeleted = false');
+    }
+
+    if (!isAdmin) {
+      qb.andWhere('(user.hideComments = false OR user.hideComments IS NULL)');
+    }
+
+    qb.orderBy('comment.createdAt', 'ASC');
+
+    const comments = await qb.getMany();
 
     // Format comments and hide password
     const formattedComments = comments.map((c) => {
@@ -69,6 +93,7 @@ export class CommentsService {
         userId: c.userId,
         parentId: c.parentId,
         content: c.content,
+        isDeleted: c.isDeleted,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
         user: userWithoutPassword,

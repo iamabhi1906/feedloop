@@ -5,6 +5,8 @@ import FeedbackCard from "@/components/feedbacks/feedback-card/feedback-card";
 import { serverApi } from "@/utils/api/ssr-api";
 import { Feedback } from "@/features/feedback/feedback.types";
 
+import { User } from "@/features/users/users.type";
+
 export const dynamic = "force-dynamic";
 
 interface HomeProps {
@@ -61,6 +63,14 @@ async function getFeedbacks(searchParams: Awaited<HomeProps["searchParams"]>) {
 export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
   const result = await getFeedbacks(params);
+  let user: User | null = null;
+  try {
+    const api = await serverApi();
+    const { data } = await api.get("/auth/me");
+    user = data?.user ?? null;
+  } catch {
+    user = null;
+  }
   return (
     <Box className={styles.page}>
       <FeedbackFilters />
@@ -86,7 +96,11 @@ export default async function Home({ searchParams }: HomeProps) {
 
         <Box className={styles.list}>
           {result.data.map((feedback: Feedback) => (
-            <FeedbackCard key={feedback.id} feedback={feedback} />
+            <FeedbackCard
+              key={feedback.id}
+              feedback={feedback}
+              currentUser={user}
+            />
           ))}
         </Box>
 

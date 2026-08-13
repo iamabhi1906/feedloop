@@ -115,6 +115,9 @@ export default function CommentItem({
             {isOwnComment && (
               <Chip label="You" size="small" className={styles.youBadge} />
             )}
+            {comment.isDeleted && (
+              <Chip label="Deleted" color="error" size="small" variant="outlined" />
+            )}
             <Typography className={styles.time}>{formattedDate}</Typography>
           </Box>
 

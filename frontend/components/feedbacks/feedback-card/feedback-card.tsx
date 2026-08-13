@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Box, Chip, IconButton, Typography } from "@mui/material";
+import { Box, Chip, IconButton, Tooltip, Typography } from "@mui/material";
 import ArrowUpwardRoundedIcon from "@mui/icons-material/ArrowUpwardRounded";
 import ArrowDownwardRoundedIcon from "@mui/icons-material/ArrowDownwardRounded";
 import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineRounded";
@@ -18,7 +18,7 @@ interface FeedbackCardProps {
   feedback: Feedback;
   onVote?: (feedbackId: string, type: VoteType) => Promise<void>;
   showFullDescription?: boolean;
-  currentUser: User | null;
+  currentUser?: User | null;
 }
 
 export default function FeedbackCard({
@@ -32,6 +32,8 @@ export default function FeedbackCard({
   const [score, setScore] = useState<number>(feedback.score ?? 0);
   const [voting, setVoting] = useState(false);
 
+  const isAdmin = currentUser?.role === "admin";
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setVote(feedback.userVote ?? null);
@@ -39,7 +41,7 @@ export default function FeedbackCard({
   }, [feedback.userVote, feedback.score]);
 
   const handleVote = async (type: VoteType) => {
-    if (voting) return;
+    if (voting || isAdmin) return;
     const previousVote = vote;
     const previousScore = score;
     let newVote: VoteType | null = type;
@@ -81,40 +83,59 @@ export default function FeedbackCard({
     }
   };
 
+  const voteTooltip = isAdmin
+    ? "Admin should not be able to vote on feedback"
+    : !currentUser
+    ? "Login to vote"
+    : "";
+
   return (
     <Box className={styles.card}>
       <Box className={styles.voteSection}>
-        <IconButton
-          className={`${styles.voteButton} ${
-            vote === "UPVOTE" ? styles.activeUpvote : ""
-          }`}
-          onClick={() => handleVote("UPVOTE")}
-          disabled={voting || !currentUser}
-          aria-label="upvote"
-        >
-          <ArrowUpwardRoundedIcon />
-        </IconButton>
+        <Tooltip title={voteTooltip}>
+          <span>
+            <IconButton
+              className={`${styles.voteButton} ${
+                vote === "UPVOTE" ? styles.activeUpvote : ""
+              }`}
+              onClick={() => handleVote("UPVOTE")}
+              disabled={voting || !currentUser || isAdmin}
+              aria-label="upvote"
+            >
+              <ArrowUpwardRoundedIcon />
+            </IconButton>
+          </span>
+        </Tooltip>
         <Typography className={styles.score}>{score}</Typography>
-        <IconButton
-          className={`${styles.voteButton} ${
-            vote === "DOWNVOTE" ? styles.activeDownvote : ""
-          }`}
-          onClick={() => handleVote("DOWNVOTE")}
-          disabled={voting || !currentUser}
-          aria-label="downvote"
-        >
-          <ArrowDownwardRoundedIcon />
-        </IconButton>
+        <Tooltip title={voteTooltip}>
+          <span>
+            <IconButton
+              className={`${styles.voteButton} ${
+                vote === "DOWNVOTE" ? styles.activeDownvote : ""
+              }`}
+              onClick={() => handleVote("DOWNVOTE")}
+              disabled={voting || !currentUser || isAdmin}
+              aria-label="downvote"
+            >
+              <ArrowDownwardRoundedIcon />
+            </IconButton>
+          </span>
+        </Tooltip>
       </Box>
       <Box className={styles.content}>
         <Box className={styles.header}>
-          <Typography
-            component={Link}
-            href={`/feedback/${feedback.id}`}
-            className={styles.title}
-          >
-            {feedback.title}
-          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <Typography
+              component={Link}
+              href={`/feedback/${feedback.id}`}
+              className={styles.title}
+            >
+              {feedback.title}
+            </Typography>
+            {feedback.isDeleted && (
+              <Chip label="Deleted" color="error" size="small" variant="outlined" />
+            )}
+          </Box>
           <Typography className={styles.author}>
             by @{feedback.user?.name ?? "unknown"}
           </Typography>

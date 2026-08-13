@@ -9,6 +9,9 @@ import { Repository } from 'typeorm';
 import { PasswordService } from '../auth/password/password.service';
 import { SignupDTO } from '../auth/dto/signup.dto';
 
+import { AdminUsersQueryDTO } from './dto/admin-users-query.dto';
+import { UpdateUserActionsDTO } from './dto/update-user-actions.dto';
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -57,6 +60,61 @@ export class UsersService {
 
   async getAllUsers(): Promise<User[]> {
     return await this.userRepository.find();
+  }
+
+  async getAdminUsers(query: AdminUsersQueryDTO) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const qb = this.userRepository.createQueryBuilder('user');
+
+    if (query.search) {
+      qb.where(
+        '(user.name ILIKE :search OR user.username ILIKE :search OR user.email ILIKE :search)',
+        { search: `%${query.search}%` },
+      );
+    }
+
+    qb.orderBy('user.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [users, total] = await qb.getManyAndCount();
+
+    const data = users.map((u) => {
+      const { password, ...userWithoutPassword } = u;
+      return userWithoutPassword;
+    });
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async updateUserActions(userId: string, dto: UpdateUserActionsDTO) {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException(`User with id:${userId} not found`);
+    }
+
+    if (dto.isLoginDisabled !== undefined) {
+      user.isLoginDisabled = dto.isLoginDisabled;
+    }
+    if (dto.hideFeedbacks !== undefined) {
+      user.hideFeedbacks = dto.hideFeedbacks;
+    }
+    if (dto.hideComments !== undefined) {
+      user.hideComments = dto.hideComments;
+    }
+
+    const updatedUser = await this.userRepository.save(user);
+    const { password, ...userWithoutPassword } = updatedUser;
+    return userWithoutPassword;
   }
 
   async deleteUser(id: string) {

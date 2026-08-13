@@ -31,6 +31,10 @@ export class AuthService {
     const user = await this.usersService.findByEmailOrUsername(identifier);
     if (!user) throw new UnauthorizedException('Invalid credentials..!');
 
+    if (user.isLoginDisabled) {
+      throw new UnauthorizedException('Your account has been disabled by an administrator');
+    }
+
     const isPasswordValid = await this.passwordService.compare(
       loginDto.password,
       user.password,
@@ -50,6 +54,12 @@ export class AuthService {
         name: user.name,
         email: user.email,
         username: user.username,
+        role: user.role,
+        isLoginDisabled: user.isLoginDisabled,
+        hideFeedbacks: user.hideFeedbacks,
+        hideComments: user.hideComments,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
       tokens,
     };

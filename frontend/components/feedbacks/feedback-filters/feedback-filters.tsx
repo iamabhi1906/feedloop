@@ -7,11 +7,13 @@ import {
   Chip,
   debounce,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   OutlinedInput,
   Select,
   SelectChangeEvent,
+  Switch,
   TextField,
   Typography,
 } from "@mui/material";
@@ -22,7 +24,11 @@ import { User } from "@/features/users/users.type";
 import { getTags } from "@/features/tags/tag.service";
 import { getUsers } from "@/features/users/users.service";
 
-export default function FeedbackFilters() {
+interface FeedbackFiltersProps {
+  isAdminView?: boolean;
+}
+
+export default function FeedbackFilters({ isAdminView = false }: FeedbackFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -190,6 +196,35 @@ export default function FeedbackFilters() {
             <MenuItem value="asc">Lowest first</MenuItem>
           </Select>
         </FormControl>
+
+        {isAdminView && (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1, my: 1 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={searchParams.get("includeDeleted") === "true"}
+                  onChange={(e) =>
+                    updateUrl("includeDeleted", e.target.checked ? "true" : "")
+                  }
+                  color="error"
+                />
+              }
+              label="Show deleted (A)"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={searchParams.get("includeDeletedComments") === "true"}
+                  onChange={(e) =>
+                    updateUrl("includeDeletedComments", e.target.checked ? "true" : "")
+                  }
+                  color="warning"
+                />
+              }
+              label="Show deleted Comments (B)"
+            />
+          </Box>
+        )}
 
         <Button
           variant="outlined"

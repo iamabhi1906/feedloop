@@ -6,6 +6,7 @@ export interface CommentItem {
   userId: string;
   parentId?: string | null;
   content: string;
+  isDeleted?: boolean;
   createdAt: string;
   updatedAt: string;
   user: Partial<User>;

@@ -14,7 +14,7 @@ export class VotesController {
   @UseGuards(JwtAuthGuard)
   async vote(@Req() req: AuthenticatedRequest, @Body() body: VoteDto) {
     return await this.votesService.vote(
-      req.user.id,
+      req.user,
       body.feedbackId,
       body.type,
     );

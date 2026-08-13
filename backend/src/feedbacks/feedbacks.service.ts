@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import Feedback from './entities/feedback.entity';
 import { Repository } from 'typeorm';
 import { CreateFeedbackDTO } from './dto/create.dto';
 import User from '../users/entities/user.entity';
+import { UserRole } from '../users/enums/user-role.enum';
 import { TagsService } from '../tags/tags.service';
 import { FeedbackQueryDTO } from './dto/query.dto';
 import { VoteType } from '../votes/enums/vote-type.enum';
@@ -21,6 +21,10 @@ export class FeedbacksService {
     user: User,
     createFeedbackDTO: CreateFeedbackDTO,
   ): Promise<Feedback> {
+    if (user.isLoginDisabled) {
+      throw new ForbiddenException('Your account has been disabled');
+    }
+
     const tags = await this.tagsService.getTagList(createFeedbackDTO.tags);
 
     const feedback = this.feedbackRepository.create({
@@ -33,18 +37,31 @@ export class FeedbacksService {
 
   async findAll(query: FeedbackQueryDTO, user?: User) {
     const { page = 1, limit = 10, sort = 'desc' } = query;
+    const isAdmin = user?.role === UserRole.ADMIN;
 
     const qb = this.feedbackRepository
       .createQueryBuilder('feedback')
       .leftJoinAndSelect('feedback.user', 'user')
       .leftJoinAndSelect('feedback.tags', 'tag')
-      .leftJoinAndSelect('feedback.votes', 'vote')
-      .leftJoinAndSelect(
+      .leftJoinAndSelect('feedback.votes', 'vote');
+
+    if (isAdmin && query.includeDeletedComments) {
+      qb.leftJoinAndSelect('feedback.comments', 'comment');
+    } else {
+      qb.leftJoinAndSelect(
         'feedback.comments',
         'comment',
         'comment.isDeleted = false',
-      )
-      .where('feedback.isDeleted = false');
+      );
+    }
+
+    if (!isAdmin || !query.includeDeleted) {
+      qb.andWhere('feedback.isDeleted = false');
+    }
+
+    if (!isAdmin) {
+      qb.andWhere('(user.hideFeedbacks = false OR user.hideFeedbacks IS NULL)');
+    }
 
     if (query.search) {
       qb.andWhere(
@@ -124,10 +141,21 @@ export class FeedbacksService {
   }
 
   async findOne(id: string, user?: User) {
-    const feedback = await this.feedbackRepository.findOne({
-      where: { id, isDeleted: false },
-      relations: { user: true, tags: true, votes: true, comments: true },
-    });
+    const isAdmin = user?.role === UserRole.ADMIN;
+    const qb = this.feedbackRepository
+      .createQueryBuilder('feedback')
+      .leftJoinAndSelect('feedback.user', 'user')
+      .leftJoinAndSelect('feedback.tags', 'tag')
+      .leftJoinAndSelect('feedback.votes', 'vote')
+      .leftJoinAndSelect('feedback.comments', 'comment')
+      .where('feedback.id = :id', { id });
+
+    if (!isAdmin) {
+      qb.andWhere('feedback.isDeleted = false');
+      qb.andWhere('(user.hideFeedbacks = false OR user.hideFeedbacks IS NULL)');
+    }
+
+    const feedback = await qb.getOne();
 
     if (!feedback) {
       throw new NotFoundException('Feedback not found');

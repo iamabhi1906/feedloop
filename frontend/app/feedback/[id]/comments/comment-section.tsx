@@ -56,41 +56,51 @@ export default function CommentSection({
     }
   };
 
+  const isAdmin = currentUser?.role === "admin";
+
   return (
     <Box className={styles.section}>
       <Box className={styles.header}>
         <Typography className={styles.title}>Comments</Typography>
       </Box>
       <Box className={styles.addBox}>
-        <TextField
-          placeholder={
-            currentUser
-              ? "Share your thoughts or feedback..."
-              : "Login to add a comment..."
-          }
-          multiline
-          rows={3}
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          onClick={() => {
-            if (!currentUser) {
-              router.push("/login");
-            }
-          }}
-          fullWidth
-        />
-        <Box className={styles.actions}>
-          <Button
-            variant="contained"
-            startIcon={<AddCommentRoundedIcon />}
-            onClick={handleAddCommentClick}
-            disabled={
-              submitting || (Boolean(currentUser) && !newComment.trim())
-            }
-          >
-            Add Comment
-          </Button>
-        </Box>
+        {isAdmin ? (
+          <Typography color="textSecondary" sx={{ py: 1, fontStyle: "italic" }}>
+            Admins are not allowed to comment on feedback. (View only)
+          </Typography>
+        ) : (
+          <>
+            <TextField
+              placeholder={
+                currentUser
+                  ? "Share your thoughts or feedback..."
+                  : "Login to add a comment..."
+              }
+              multiline
+              rows={3}
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              onClick={() => {
+                if (!currentUser) {
+                  router.push("/login");
+                }
+              }}
+              fullWidth
+            />
+            <Box className={styles.actions}>
+              <Button
+                variant="contained"
+                startIcon={<AddCommentRoundedIcon />}
+                onClick={handleAddCommentClick}
+                disabled={
+                  submitting || (Boolean(currentUser) && !newComment.trim())
+                }
+              >
+                Add Comment
+              </Button>
+            </Box>
+          </>
+        )}
       </Box>
       <Box className={styles.threadList}>
         {comments.length === 0 ? (
