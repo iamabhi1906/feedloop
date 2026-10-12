@@ -39,7 +39,6 @@ export class FeedbacksController {
     @Query() query: FeedbackQueryDTO,
     @Req() request: OptionalAuthenticatedRequest,
   ) {
-    console.log(query);
     return await this.feedBackService.findAll(query, request.user);
   }
 
@@ -49,7 +48,6 @@ export class FeedbacksController {
     @Query() query: FeedbackQueryDTO,
     @Req() request: AuthenticatedRequest,
   ) {
-    console.log('i am hit');
     return this.feedBackService.findAllMe(query, request.user);
   }
 

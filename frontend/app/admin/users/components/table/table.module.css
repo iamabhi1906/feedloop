@@ -1,0 +1,63 @@
+.tableContainer {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.tableHead {
+  background-color: #f8fafc;
+}
+
+.headerCell {
+  font-weight: 700 !important;
+}
+
+.actionsHeaderCell {
+  font-weight: 700 !important;
+  min-width: 420px;
+}
+
+.loadingCell,
+.emptyCell {
+  padding: 48px 16px !important;
+  text-align: center;
+}
+
+.loadingText {
+  margin-top: 8px !important;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.adminAvatar {
+  background-color: #0284c7 !important;
+}
+
+.userAvatar {
+  background-color: #64748b !important;
+}
+
+.userName {
+  font-weight: 700 !important;
+}
+
+.badgeStack {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.actionCell {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.switchLabel {
+  font-size: 0.85rem !important;
+}

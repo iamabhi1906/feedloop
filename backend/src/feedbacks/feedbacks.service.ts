@@ -1,13 +1,18 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import Feedback from './entities/feedback.entity';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, ILike, In, Repository } from 'typeorm';
 import { CreateFeedbackDTO } from './dto/create.dto';
 import User from '../users/entities/user.entity';
-import { UserRole } from '../users/enums/user-role.enum';
 import { TagsService } from '../tags/tags.service';
 import { FeedbackQueryDTO } from './dto/query.dto';
 import { VoteType } from '../votes/enums/vote-type.enum';
+import FeedbackVisibility from './enums/feedback-visibility.enum';
 
 @Injectable()
 export class FeedbacksService {
@@ -16,6 +21,8 @@ export class FeedbacksService {
     private readonly feedbackRepository: Repository<Feedback>,
     private readonly tagsService: TagsService,
   ) {}
+
+  private readonly logger = new Logger(FeedbacksService.name);
 
   async createFeedBack(
     user: User,
@@ -36,99 +43,69 @@ export class FeedbacksService {
   }
 
   async findAll(query: FeedbackQueryDTO, user?: User) {
+    this.logger.verbose('A Debug log');
     const { page = 1, limit = 10, sort = 'desc' } = query;
-    const isAdmin = user?.role === UserRole.ADMIN;
-
-    const qb = this.feedbackRepository
-      .createQueryBuilder('feedback')
-      .leftJoinAndSelect('feedback.user', 'user')
-      .leftJoinAndSelect('feedback.tags', 'tag')
-      .leftJoinAndSelect('feedback.votes', 'vote');
-
-    if (isAdmin && query.includeDeletedComments) {
-      qb.leftJoinAndSelect('feedback.comments', 'comment');
-    } else {
-      qb.leftJoinAndSelect(
-        'feedback.comments',
-        'comment',
-        'comment.isDeleted = false',
-      );
-    }
-
-    if (!isAdmin || !query.includeDeleted) {
-      qb.andWhere('feedback.isDeleted = false');
-    }
-
-    if (!isAdmin) {
-      qb.andWhere('(user.hideFeedbacks = false OR user.hideFeedbacks IS NULL)');
-    }
-
-    if (query.search) {
-      qb.andWhere(
-        '(feedback.title ILIKE :search OR feedback.description ILIKE :search)',
-        { search: `%${query.search}%` },
-      );
-    }
-
-    if (query.tags?.length) {
-      qb.andWhere('(tag.id IN (:...tags) OR tag.name IN (:...tags))', {
-        tags: query.tags,
-      });
-    }
+    const where: FindOptionsWhere<Feedback> = {
+      isDeleted: false,
+      visibility: FeedbackVisibility.PUBLIC,
+      user: { hideFeedbacks: false },
+    };
+    if (query.search) where.title = ILike(`%${query.search}%`);
 
     if (query.authors?.length) {
-      qb.andWhere(
-        '(feedback.userId IN (:...authors) OR user.username IN (:...authors) OR user.name IN (:...authors))',
-        {
-          authors: query.authors,
-        },
-      );
+      where.user = {
+        hideFeedbacks: false,
+        id: In(query.authors),
+      };
     }
 
-    qb.addSelect(
-      `(
-        SELECT COALESCE(
-          SUM(
-            CASE
-              WHEN v.type = 'UPVOTE' THEN 1
-              WHEN v.type = 'DOWNVOTE' THEN -1
-              ELSE 0
-            END
-          ),
-          0
-        )
-        FROM votes v
-        WHERE v."feedbackId" = feedback.id
-      )`,
-      'score_calc',
-    )
-      .orderBy('score_calc', sort.toUpperCase() as 'ASC' | 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
+    if (query.tags?.length) where.tags = { id: In(query.tags) };
 
-    const [rawFeedbacks, total] = await qb.getManyAndCount();
-
-    const data = rawFeedbacks.map((feedback) => {
-      const votes = feedback.votes || [];
-      const score = votes.reduce((acc, v) => {
-        if (v.type === VoteType.UPVOTE) return acc + 1;
-        if (v.type === VoteType.DOWNVOTE) return acc - 1;
-        return acc;
-      }, 0);
-
-      const userVote = user
-        ? (votes.find((v) => v.userId === user.id)?.type ?? null)
-        : null;
-
-      const commentCount = (feedback.comments || []).length;
-      const { votes: _, comments: __, ...rest } = feedback;
-      return {
-        ...rest,
+    const [feedbacks, total] = await this.feedbackRepository.findAndCount({
+      where,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        visibility: true,
+        createdAt: true,
+        updatedAt: true,
+        user: { id: true, username: true, name: true },
+        tags: { id: true, name: true },
+      },
+      relations: { user: true, tags: true, votes: true, comments: true },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    const data: Array<
+      Feedback & {
+        score: number;
+        userVote: VoteType | null;
+        commentCount: number;
+      }
+    > = [];
+    for (const feedback of feedbacks) {
+      let score = 0;
+      let userVote: VoteType | null = null;
+      for (const vote of feedback.votes ?? []) {
+        if (vote.type === VoteType.UPVOTE) score++;
+        if (vote.type === VoteType.DOWNVOTE) score--;
+        if (vote.userId === user?.id) {
+          userVote = vote.type;
+        }
+      }
+      const commentCount =
+        feedback.comments?.filter((comment) => !comment.isDeleted).length ?? 0;
+      data.push({
+        ...feedback,
         score,
         userVote,
         commentCount,
-      };
-    });
+      });
+    }
+    data.sort((a, b) =>
+      sort === 'asc' ? a.score - b.score : b.score - a.score,
+    );
     return {
       data,
       meta: {
@@ -141,42 +118,48 @@ export class FeedbacksService {
   }
 
   async findOne(id: string, user?: User) {
-    const isAdmin = user?.role === UserRole.ADMIN;
-    const qb = this.feedbackRepository
-      .createQueryBuilder('feedback')
-      .leftJoinAndSelect('feedback.user', 'user')
-      .leftJoinAndSelect('feedback.tags', 'tag')
-      .leftJoinAndSelect('feedback.votes', 'vote')
-      .leftJoinAndSelect('feedback.comments', 'comment')
-      .where('feedback.id = :id', { id });
+    const feedback = await this.feedbackRepository.findOne({
+      where: {
+        id,
+        isDeleted: false,
+        visibility: FeedbackVisibility.PUBLIC,
+        user: { hideFeedbacks: false },
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        visibility: true,
+        createdAt: true,
+        updatedAt: true,
+        user: { id: true, username: true, name: true },
+        tags: { id: true, name: true },
+      },
+      relations: { user: true, tags: true, votes: true, comments: true },
+    });
 
-    if (!isAdmin) {
-      qb.andWhere('feedback.isDeleted = false');
-      qb.andWhere('(user.hideFeedbacks = false OR user.hideFeedbacks IS NULL)');
+    if (!feedback) throw new NotFoundException('Feedback not found');
+
+    let score = 0;
+    let userVote: VoteType | null = null;
+    for (const vote of feedback.votes ?? []) {
+      if (vote.type === VoteType.UPVOTE) score++;
+      if (vote.type === VoteType.DOWNVOTE) score--;
+      if (vote.userId === user?.id) {
+        userVote = vote.type;
+      }
     }
-
-    const feedback = await qb.getOne();
-
-    if (!feedback) {
-      throw new NotFoundException('Feedback not found');
-    }
-    const votes = feedback.votes || [];
-    const score = votes.reduce((acc, v) => {
-      if (v.type === VoteType.UPVOTE) return acc + 1;
-      if (v.type === VoteType.DOWNVOTE) return acc - 1;
-      return acc;
-    }, 0);
-
-    const userVote = user
-      ? (votes.find((v) => v.userId === user.id)?.type ?? null)
-      : null;
-
-    const commentCount = (feedback.comments || []).filter(
-      (c) => !c.isDeleted,
-    ).length;
-    const { votes: _, comments: __, ...rest } = feedback;
+    const commentCount =
+      feedback.comments?.filter((comment) => !comment.isDeleted).length ?? 0;
     return {
-      ...rest,
+      id: feedback.id,
+      title: feedback.title,
+      description: feedback.description,
+      visibility: feedback.visibility,
+      createdAt: feedback.createdAt,
+      updatedAt: feedback.updatedAt,
+      user: feedback.user,
+      tags: feedback.tags,
       score,
       userVote,
       commentCount,
@@ -184,61 +167,70 @@ export class FeedbacksService {
   }
 
   async findAllMe(query: FeedbackQueryDTO, user: User) {
+    console.log(user);
     const { page = 1, limit = 10, sort = 'desc' } = query;
-    const qb = this.feedbackRepository
-      .createQueryBuilder('feedback')
-      .leftJoinAndSelect('feedback.user', 'user')
-      .leftJoinAndSelect('feedback.tags', 'tag')
-      .leftJoinAndSelect('feedback.votes', 'vote')
-      .leftJoinAndSelect(
-        'feedback.comments',
-        'comment',
-        'comment.isDeleted = false',
-      )
-      .where('feedback.isDeleted = false')
-      .andWhere('feedback.userId = :userId', { userId: user.id });
+    const where: FindOptionsWhere<Feedback> = {
+      visibility: FeedbackVisibility.PUBLIC,
+      userId: user.id,
+    };
+    if (query.search) where.title = ILike(`%${query.search}%`);
 
-    if (query.search) {
-      qb.andWhere(
-        '(feedback.title ILIKE :search OR feedback.description ILIKE :search)',
-        { search: `%${query.search}%` },
-      );
+    if (query.authors?.length) {
+      where.user = {
+        hideFeedbacks: false,
+        username: In(query.authors),
+      };
     }
 
-    if (query.tags?.length) {
-      qb.andWhere('(tag.id IN (:...tags) OR tag.name IN (:...tags))', {
-        tags: query.tags,
+    if (query.tags?.length) where.tags = { id: In(query.tags) };
+
+    const [feedbacks, total] = await this.feedbackRepository.findAndCount({
+      where,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        visibility: true,
+        createdAt: true,
+        updatedAt: true,
+        user: { id: true, username: true, name: true },
+        tags: { id: true, name: true },
+      },
+      relations: { user: true, tags: true, votes: true, comments: true },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    const data: Array<
+      Feedback & {
+        score: number;
+        userVote: VoteType | null;
+        commentCount: number;
+      }
+    > = [];
+    for (const feedback of feedbacks) {
+      let score = 0;
+      let userVote: VoteType | null = null;
+      for (const vote of feedback.votes ?? []) {
+        if (vote.type === VoteType.UPVOTE) score++;
+        if (vote.type === VoteType.DOWNVOTE) score--;
+        if (vote.userId === user?.id) {
+          userVote = vote.type;
+        }
+      }
+      const commentCount =
+        feedback.comments?.filter((comment) => !comment.isDeleted).length ?? 0;
+      data.push({
+        ...feedback,
+        score,
+        userVote,
+        commentCount,
       });
     }
-    const allFeedbacks = await qb.getMany();
-    const formattedData = allFeedbacks.map((feedback) => {
-      const votes = feedback.votes || [];
-      const score = votes.reduce((acc, v) => {
-        if (v.type === VoteType.UPVOTE) return acc + 1;
-        if (v.type === VoteType.DOWNVOTE) return acc - 1;
-        return acc;
-      }, 0);
-
-      const commentCount = (feedback.comments || []).length;
-      const { votes: _, comments: __, ...rest } = feedback;
-
-      return { ...rest, score, commentCount };
-    });
-
-    // 5. Sort by score in memory
-    formattedData.sort((a, b) => {
-      return sort.toLowerCase() === 'desc'
-        ? b.score - a.score
-        : a.score - b.score;
-    });
-
-    // 6. Paginate the sorted array
-    const total = formattedData.length;
-    const startIndex = (page - 1) * limit;
-    const paginatedData = formattedData.slice(startIndex, startIndex + limit);
-
+    data.sort((a, b) =>
+      sort === 'asc' ? a.score - b.score : b.score - a.score,
+    );
     return {
-      data: paginatedData,
+      data,
       meta: {
         page,
         limit,

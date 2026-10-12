@@ -1,6 +1,6 @@
 import FeedbackFilters from "@/components/feedbacks/feedback-filters/feedback-filters";
-import styles from "../../page.module.css";
-import { Box, Typography, Chip, Paper } from "@mui/material";
+import styles from "./page.module.css";
+import { Box, Typography, Chip, Paper, Stack } from "@mui/material";
 import FeedbackCard from "@/components/feedbacks/feedback-card/feedback-card";
 import { serverApi } from "@/utils/api/ssr-api";
 import { Feedback } from "@/features/feedback/feedback.types";
@@ -27,7 +27,9 @@ function toArray(value?: string | string[]) {
   return Array.isArray(value) ? value : [value];
 }
 
-async function getAdminFeedbacks(searchParams: Awaited<AdminFeedbacksProps["searchParams"]>) {
+async function getAdminFeedbacks(
+  searchParams: Awaited<AdminFeedbacksProps["searchParams"]>,
+) {
   const params = new URLSearchParams();
 
   if (searchParams.search) {
@@ -69,7 +71,9 @@ async function getAdminFeedbacks(searchParams: Awaited<AdminFeedbacksProps["sear
   };
 }
 
-export default async function AdminFeedbacksPage({ searchParams }: AdminFeedbacksProps) {
+export default async function AdminFeedbacksPage({
+  searchParams,
+}: AdminFeedbacksProps) {
   const params = await searchParams;
   const result = await getAdminFeedbacks(params);
 
@@ -86,50 +90,40 @@ export default async function AdminFeedbacksPage({ searchParams }: AdminFeedback
     <Box className={styles.page}>
       <FeedbackFilters isAdminView={true} />
       <Box className={styles.mainViewArea}>
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2.5,
-            mb: 3,
-            borderRadius: 3,
-            background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-            color: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <SecurityIcon sx={{ color: "#38bdf8", fontSize: 32 }} />
+        <Paper elevation={0} className={styles.paper}>
+          <Stack direction={"row"} spacing={2}>
+            <SecurityIcon />
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-                Admin Feedback Overview
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                View-only mode. You cannot comment or vote on feedbacks.
-              </Typography>
+              <Typography variant="h6">Admin Feedback Overview</Typography>
             </Box>
-          </Box>
-          <Box sx={{ display: "flex", gap: 1 }}>
+          </Stack>
+          <Box>
             {params.includeDeleted === "true" && (
-              <Chip label="Showing Deleted Feedbacks" color="error" size="small" />
+              <Chip
+                label="Showing Deleted Feedbacks"
+                color="error"
+                size="small"
+              />
             )}
             {params.includeDeletedComments === "true" && (
-              <Chip label="Showing Deleted Comments" color="warning" size="small" />
+              <Chip
+                label="Showing Deleted Comments"
+                color="warning"
+                size="small"
+              />
             )}
             <Chip
               label={`Total Feedbacks: ${result.meta.total}`}
               color="primary"
               variant="outlined"
               size="small"
-              sx={{ color: "#fff", borderColor: "rgba(255,255,255,0.3)" }}
             />
           </Box>
         </Paper>
 
         <Box className={styles.list}>
           {result.data.length === 0 ? (
-            <Paper sx={{ p: 4, textAlign: "center", borderRadius: 2 }}>
+            <Paper>
               <Typography color="textSecondary">
                 No feedbacks found matching current filters.
               </Typography>

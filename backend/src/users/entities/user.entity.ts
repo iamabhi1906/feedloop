@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import Tag from '../../tags/entities/tag.entity';
 import { UserRole } from '../enums/user-role.enum';
+import { Exclude } from 'class-transformer';
 
 @Entity('users')
 export default class User {
@@ -23,6 +24,7 @@ export default class User {
   @Column({ unique: true, length: 100 })
   username!: string;
 
+  @Exclude({ toPlainOnly: true })
   @Column()
   password!: string;
 

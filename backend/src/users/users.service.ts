@@ -66,25 +66,16 @@ export class UsersService {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const qb = this.userRepository.createQueryBuilder('user');
-
     if (query.search) {
       qb.where(
         '(user.name ILIKE :search OR user.username ILIKE :search OR user.email ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
-
     qb.orderBy('user.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
-
-    const [users, total] = await qb.getManyAndCount();
-
-    const data = users.map((u) => {
-      const { password, ...userWithoutPassword } = u;
-      return userWithoutPassword;
-    });
-
+    const [data, total] = await qb.getManyAndCount();
     return {
       data,
       meta: {
@@ -111,10 +102,8 @@ export class UsersService {
     if (dto.hideComments !== undefined) {
       user.hideComments = dto.hideComments;
     }
-
     const updatedUser = await this.userRepository.save(user);
-    const { password, ...userWithoutPassword } = updatedUser;
-    return userWithoutPassword;
+    return updatedUser;
   }
 
   async deleteUser(id: string) {
